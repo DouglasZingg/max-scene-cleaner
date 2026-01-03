@@ -143,9 +143,24 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
         self.status_label.setText(f"Scan complete. Issues: {len(results)}")
 
     def on_clean(self):
-        # Day 2: stub only
-        self.status_label.setText("implemented later")
-        self.add_result("INFO", "Clean Scene clicked (stub). No changes made.")
+        from core.transform_fixes import clean_transforms
+
+        self.status_label.setText("Cleaning scene (transforms)...")
+        self.add_result("INFO", "Starting transform cleanup...")
+
+        options = self.get_options()
+        actions = clean_transforms(options)
+
+        if not actions:
+            self.add_result("INFO", "No geometry objects found to clean.")
+            self.status_label.setText("Clean complete (nothing to do)")
+            return
+
+        for a in actions:
+            self.add_result(a["level"], f"{a['node']} - {a['message']}")
+
+        self.status_label.setText(f"Clean complete. Actions: {len(actions)}")
+
 
     def on_clear(self):
         self.results_list.clear()
