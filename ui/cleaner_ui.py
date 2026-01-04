@@ -144,12 +144,19 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
 
     def on_clean(self):
         from core.transform_fixes import clean_transforms
+        from core.scene_cleanup import clean_scene
 
-        self.status_label.setText("Cleaning scene (transforms)...")
-        self.add_result("INFO", "Starting transform cleanup...")
+        self.status_label.setText("Cleaning scene...")
+        self.add_result("INFO", "Starting cleanup...")
 
         options = self.get_options()
-        actions = clean_transforms(options)
+
+        # Day 4: transforms (Reset XForm + Collapse Stack)
+        actions = []
+        actions += clean_transforms(options)
+
+        # Day 5: hidden / frozen / empty layers
+        actions += clean_scene(options)
 
         if not actions:
             self.add_result("INFO", "Nothing changed. (No targets found or options disabled.)")
@@ -159,8 +166,7 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
         for a in actions:
             self.add_result(a["level"], f"{a['node']} - {a['message']}")
 
-        self.status_label.setText(f"Clean complete. Actions: {len(actions)}")
-
+        self.status_label.setText("Clean complete")
 
     def on_clear(self):
         self.results_list.clear()
