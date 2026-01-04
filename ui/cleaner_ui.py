@@ -152,8 +152,8 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
         actions = clean_transforms(options)
 
         if not actions:
-            self.add_result("INFO", "No geometry objects found to clean.")
-            self.status_label.setText("Clean complete (nothing to do)")
+            self.add_result("INFO", "Nothing changed. (No targets found or options disabled.)")
+            self.status_label.setText("Clean complete (no changes)")
             return
 
         for a in actions:

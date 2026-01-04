@@ -4,93 +4,69 @@ rt = pymxs.runtime
 
 def clean_transforms(options):
     """
-    Transform cleanup with ONE reliable undo step by executing a MAXScript undo block.
-
-    options:
-      - reset_xform (bool)
-      - collapse_stack (bool)
-
-    Returns:
-      actions: list[dict]
+    Day 4: Reliable transform cleanup (Max 2026)
+    - Uses a single MAXScript undo block
+    - Iterates over built-in 'geometry' set (no handles)
+    - Applies resetXForm + collapseStack + convertToPoly
     """
-    actions = []
-
     do_reset = bool(options.get("reset_xform", True))
     do_collapse = bool(options.get("collapse_stack", True))
 
-    targets = _get_geometry_nodes()
-    if not targets:
-        return actions
+    # MAXScript uses 'true/false'
+    ms_do_reset = "true" if do_reset else "false"
+    ms_do_collapse = "true" if do_collapse else "false"
 
-    # Build handle list (stable identifiers for MAXScript)
-    handles = []
-    for n in targets:
-        try:
-            handles.append(int(rt.getHandleByAnim(n)))
-        except Exception:
-            pass
-
-    if not handles:
-        return actions
-
-    # Create MAXScript array: #(123,456,789)
-    handles_ms = "#(" + ",".join(str(h) for h in handles) + ")"
-
-    # Build one undo block in MAXScript (most reliable for Ctrl+Z)
-    # Reset XForm adds an XForm modifier; collapse bakes it; convertToPoly ensures clean base object.
     ms = f"""
     undo "MaxSceneCleaner_TransformFixes" on
     (
-        local hs = {handles_ms}
-        for h in hs do
+        local changed = 0
+
+        for n in geometry do
         (
-            local n = getNodeByHandle h
-            if n != undefined do
+            if isValidNode n do
             (
-                if {str(do_reset).lower()} do
+                -- Optional: Reset XForm
+                if {ms_do_reset} do
                 (
-                    resetXForm n
+                    try(resetXForm n)catch()
                 )
 
-                if {str(do_collapse).lower()} do
+                -- Optional: Collapse Stack (bakes modifiers like Bend)
+                if {ms_do_collapse} do
                 (
-                    collapseStack n
-                    try(convertToPoly n)catch()
+                    try(collapseStack n)catch()
                 )
+
+                -- Ensure clean base object
+                try(convertToPoly n)catch()
+
+                changed += 1
             )
         )
+
+        format "MaxSceneCleaner: cleaned % nodes\\n" changed
     )
     """
 
+    actions = []
     try:
+        before = _count_modifiers_on_geometry()
         rt.execute(ms)
-        actions.append(_info("Scene", f"Transform cleanup applied to {len(handles)} geometry objects"))
-    except Exception:
-        actions.append(_warning("Scene", "Transform cleanup failed (MAXScript execution error)"))
+        actions.append(_info("Scene", "Transform cleanup completed (geometry set)"))
+    except Exception as e:
+        actions.append(_warning("Scene", f"Transform cleanup failed: {e}"))
+        return actions
 
-    # Force UI update (Modify panel often needs this)
+    # Force UI refresh
     try:
         rt.redrawViews()
         rt.completeRedraw()
+        after = _count_modifiers_on_geometry()
+        actions.append(_info("Scene", f"Modifiers on geometry (before -> after): {before} -> {after}"))
     except Exception:
         pass
 
     return actions
-
-
-# ---------------------------
-# Helpers
-# ---------------------------
-def _get_geometry_nodes():
-    out = []
-    for o in rt.objects:
-        try:
-            sc = rt.superClassOf(o)
-            if str(sc) == "geometryClass":
-                out.append(o)
-        except Exception:
-            pass
-    return out
 
 
 def _info(node, message):
@@ -99,3 +75,13 @@ def _info(node, message):
 
 def _warning(node, message):
     return {"level": "WARNING", "node": node, "message": message}
+
+def _count_modifiers_on_geometry():
+    total = 0
+    try:
+        for n in rt.geometry:
+            if rt.isValidNode(n):
+                total += int(n.modifiers.count)
+    except Exception:
+        pass
+    return total
