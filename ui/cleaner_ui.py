@@ -43,6 +43,11 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
         self.last_results = []
 
         self.build_ui()
+        
+        self._last_scan_results = []
+        self._last_action_results = []
+        self._last_options = {}
+        
         self.connect_signals()
 
     # ---------------------------
@@ -133,7 +138,7 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
         self.btn_batch.clicked.connect(self.on_batch_clean)
         self.btn_batch.clicked.connect(self.on_batch_clean)
         self.btn_open_reports.clicked.connect(self.on_open_reports)
-
+        self.btn_export.clicked.connect(self.on_export_report)
 
     # ---------------------------
     # Actions (stubs for Day 2)
@@ -160,6 +165,10 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
         warns = sum(1 for r in results if r.get("level") == "WARNING")
         infos = sum(1 for r in results if r.get("level") == "INFO")
         self.add_result("INFO", f"Summary: {warns} warnings, {infos} info")
+        
+        self._last_options = self.get_options()
+        self._last_scan_results = results
+        self.btn_export.setEnabled(True)
 
     def on_clean(self):
         from core.transform_fixes import clean_transforms
@@ -186,6 +195,10 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
         # Display results
         for a in actions:
             self.add_result(a["level"], f"{a['node']} - {a['message']}")
+
+        self._last_options = options
+        self._last_action_results = actions
+        self.btn_export.setEnabled(True)
 
         # Optional: rerun scan after cleaning (nice UX)
         try:
@@ -283,6 +296,34 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
             except Exception as e:
                 self.add_result("ERROR", f"Could not open reports folder: {e}")
 
+    def on_export_report(self):
+        from core.reporting import build_report, save_json, save_html
+
+        # Build report using whatever we have
+        options = self._last_options or self.get_options()
+        scan_results = self._last_scan_results or []
+        action_results = self._last_action_results or []
+
+        report = build_report(options, scan_results, action_results)
+
+        folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Export Folder")
+        if not folder:
+            self.add_result("INFO", "Export canceled.")
+            return
+
+        json_path = os.path.join(folder, "max_scene_cleaner_report.json")
+        html_path = os.path.join(folder, "max_scene_cleaner_report.html")
+
+        try:
+            save_json(report, json_path)
+            save_html(report, html_path)
+            self.add_result("INFO", f"Exported JSON: {json_path}")
+            self.add_result("INFO", f"Exported HTML: {html_path}")
+            self.status_label.setText("Export complete")
+        except Exception as e:
+            self.add_result("ERROR", f"Export failed: {e}")
+            self.status_label.setText("Export failed")
+
 
     # ---------------------------
     # Helpers
@@ -297,15 +338,13 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
             "remove_unused_materials": self.chk_remove_unused_mats.isChecked(),
         }
 
-    def add_result(self, level, message):
-        item = QtWidgets.QListWidgetItem(f"[{level}] {message}")
+    def add_result(self, level, text):
+        item = QtWidgets.QListWidgetItem(f"[{level}] {text}")
 
-        if level == "ERROR":
-            item.setForeground(QtGui.QColor("red"))
-        elif level == "WARNING":
-            item.setForeground(QtGui.QColor("orange"))
-        else:
-            item.setForeground(QtGui.QColor("white"))
+        if level == "WARNING":
+            item.setForeground(QtGui.QBrush(QtGui.QColor(180, 83, 9)))
+        elif level == "ERROR":
+            item.setForeground(QtGui.QBrush(QtGui.QColor(185, 28, 28)))
 
         self.results_list.addItem(item)
 
