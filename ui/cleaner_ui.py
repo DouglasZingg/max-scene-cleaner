@@ -5,6 +5,7 @@ except ImportError:
     from PySide2 import QtWidgets, QtCore, QtGui
 
 import pymxs
+import os
 rt = pymxs.runtime
 
 
@@ -97,6 +98,7 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
         self.btn_export = QtWidgets.QPushButton("Export Report")
         self.btn_clear = QtWidgets.QPushButton("Clear Results")
         self.btn_batch = QtWidgets.QPushButton("Batch Clean Folder...")
+        self.btn_open_reports = QtWidgets.QPushButton("Open Reports Folder")
 
         self.btn_export.setEnabled(False)
 
@@ -108,6 +110,7 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
         btn_layout.addStretch()
         btn_layout.addWidget(self.btn_clear)
         btn_layout.addWidget(self.btn_batch)
+        btn_layout.addWidget(self.btn_open_reports)
 
         main_layout.addLayout(btn_layout)
 
@@ -128,6 +131,9 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
         self.btn_scan_mats.clicked.connect(self.on_scan_materials)
         self.btn_relink.clicked.connect(self.on_relink_textures)
         self.btn_batch.clicked.connect(self.on_batch_clean)
+        self.btn_batch.clicked.connect(self.on_batch_clean)
+        self.btn_open_reports.clicked.connect(self.on_open_reports)
+
 
     # ---------------------------
     # Actions (stubs for Day 2)
@@ -230,6 +236,52 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
         self.add_result("INFO", "Day 7: Batch wiring stub.")
         self.add_result("INFO", "Next: generate batch command + run batch_runner.py via 3dsmaxcmd.exe.")
         self.status_label.setText("Batch: stub (Day 7)")
+
+    def on_batch_clean(self):
+        from batch.batch_runner import run_batch
+
+        input_dir = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Input Folder (contains .max files)")
+        if not input_dir:
+            self.add_result("INFO", "Batch canceled (no input folder).")
+            return
+
+        output_dir = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Output Folder (cleaned copies + reports)")
+        if not output_dir:
+            self.add_result("INFO", "Batch canceled (no output folder).")
+            return
+
+        self.status_label.setText("Batch cleaning...")
+        self.add_result("INFO", f"Batch input: {input_dir}")
+        self.add_result("INFO", f"Batch output: {output_dir}")
+
+        options = self.get_options()
+        try:
+            summary_path = run_batch(input_dir, output_dir, options)
+            self._last_reports_dir = os.path.dirname(summary_path)
+            self.add_result("INFO", f"Batch complete. Summary: {summary_path}")
+            self.status_label.setText("Batch complete")
+        except Exception as e:
+            self.add_result("ERROR", f"Batch failed: {e}")
+            self.status_label.setText("Batch failed")
+
+
+    def on_open_reports(self):
+        import os
+        import subprocess
+
+        reports_dir = getattr(self, "_last_reports_dir", None)
+        if not reports_dir or not os.path.isdir(reports_dir):
+            self.add_result("WARNING", "No reports folder yet. Run a batch first.")
+            return
+
+        try:
+            os.startfile(reports_dir)  # Windows
+            self.add_result("INFO", f"Opened reports: {reports_dir}")
+        except Exception:
+            try:
+                subprocess.Popen(["explorer", reports_dir])
+            except Exception as e:
+                self.add_result("ERROR", f"Could not open reports folder: {e}")
 
 
     # ---------------------------
