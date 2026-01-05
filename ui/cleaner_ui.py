@@ -96,6 +96,7 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
         self.btn_relink = QtWidgets.QPushButton("Relink Textures...")
         self.btn_export = QtWidgets.QPushButton("Export Report")
         self.btn_clear = QtWidgets.QPushButton("Clear Results")
+        self.btn_batch = QtWidgets.QPushButton("Batch Clean Folder...")
 
         self.btn_export.setEnabled(False)
 
@@ -106,6 +107,7 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
         btn_layout.addWidget(self.btn_export)
         btn_layout.addStretch()
         btn_layout.addWidget(self.btn_clear)
+        btn_layout.addWidget(self.btn_batch)
 
         main_layout.addLayout(btn_layout)
 
@@ -125,7 +127,7 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
         self.btn_clear.clicked.connect(self.on_clear)
         self.btn_scan_mats.clicked.connect(self.on_scan_materials)
         self.btn_relink.clicked.connect(self.on_relink_textures)
-
+        self.btn_batch.clicked.connect(self.on_batch_clean)
 
     # ---------------------------
     # Actions (stubs for Day 2)
@@ -223,6 +225,12 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
             self.add_result(a["level"], f"{a['node']} - {a['message']}")
 
         self.status_label.setText("Relink complete")
+
+    def on_batch_clean(self):
+        self.add_result("INFO", "Day 7: Batch wiring stub.")
+        self.add_result("INFO", "Next: generate batch command + run batch_runner.py via 3dsmaxcmd.exe.")
+        self.status_label.setText("Batch: stub (Day 7)")
+
 
     # ---------------------------
     # Helpers
