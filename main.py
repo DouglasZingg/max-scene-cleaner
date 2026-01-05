@@ -1,6 +1,7 @@
 import importlib
 import sys
 
+__version__ = "1.0.0"
 
 def run():
     import ui.cleaner_ui

@@ -4,7 +4,7 @@ import datetime
 
 
 TOOL_NAME = "Max Scene Cleaner"
-TOOL_VERSION = "0.9"
+TOOL_VERSION = "1.0"
 
 
 def now_iso():
