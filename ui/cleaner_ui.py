@@ -91,14 +91,18 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
         btn_layout = QtWidgets.QHBoxLayout()
 
         self.btn_scan = QtWidgets.QPushButton("Scan Scene")
+        self.btn_scan_mats = QtWidgets.QPushButton("Scan Materials")
         self.btn_clean = QtWidgets.QPushButton("Clean Scene")
+        self.btn_relink = QtWidgets.QPushButton("Relink Textures...")
         self.btn_export = QtWidgets.QPushButton("Export Report")
         self.btn_clear = QtWidgets.QPushButton("Clear Results")
 
-        self.btn_export.setEnabled(False)  # enable on Day 8 equivalent
+        self.btn_export.setEnabled(False)
 
         btn_layout.addWidget(self.btn_scan)
+        btn_layout.addWidget(self.btn_scan_mats)
         btn_layout.addWidget(self.btn_clean)
+        btn_layout.addWidget(self.btn_relink)
         btn_layout.addWidget(self.btn_export)
         btn_layout.addStretch()
         btn_layout.addWidget(self.btn_clear)
@@ -119,6 +123,9 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
         self.btn_scan.clicked.connect(self.on_scan)
         self.btn_clean.clicked.connect(self.on_clean)
         self.btn_clear.clicked.connect(self.on_clear)
+        self.btn_scan_mats.clicked.connect(self.on_scan_materials)
+        self.btn_relink.clicked.connect(self.on_relink_textures)
+
 
     # ---------------------------
     # Actions (stubs for Day 2)
@@ -141,6 +148,10 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
                 self.add_result(r["level"], f"{r['node']} - {r['message']}")
 
         self.status_label.setText(f"Scan complete. Issues: {len(results)}")
+        
+        warns = sum(1 for r in results if r.get("level") == "WARNING")
+        infos = sum(1 for r in results if r.get("level") == "INFO")
+        self.add_result("INFO", f"Summary: {warns} warnings, {infos} info")
 
     def on_clean(self):
         from core.transform_fixes import clean_transforms
@@ -151,11 +162,12 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
 
         options = self.get_options()
 
-        # Day 4: transforms (Reset XForm + Collapse Stack)
         actions = []
+
+        # Day 4: transforms (Reset XForm + Collapse Stack)
         actions += clean_transforms(options)
 
-        # Day 5: hidden / frozen / empty layers
+        # Day 5: hidden / frozen helpers / empty layers
         actions += clean_scene(options)
 
         if not actions:
@@ -163,8 +175,17 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
             self.status_label.setText("Clean complete (no changes)")
             return
 
+        # Display results
         for a in actions:
             self.add_result(a["level"], f"{a['node']} - {a['message']}")
+
+        # Optional: rerun scan after cleaning (nice UX)
+        try:
+            from core.scan import scan_scene
+            scan_results = scan_scene(options)
+            self.add_result("INFO", f"Post-clean scan issues: {len(scan_results)}")
+        except Exception:
+            pass
 
         self.status_label.setText("Clean complete")
 
@@ -172,6 +193,36 @@ class MaxSceneCleanerUI(QtWidgets.QDialog):
         self.results_list.clear()
         self.last_results = []
         self.status_label.setText("Results cleared")
+        
+    def on_scan_materials(self):
+        from core.material_scan import scan_materials_and_textures
+
+        self.status_label.setText("Scanning materials/textures...")
+        self.add_result("INFO", "Material/texture scan started...")
+
+        results = scan_materials_and_textures(self.get_options())
+        for r in results:
+            self.add_result(r["level"], f"{r['node']} - {r['message']}")
+
+        warns = sum(1 for r in results if r.get("level") == "WARNING")
+        self.status_label.setText(f"Material scan complete. Warnings: {warns}")
+
+
+    def on_relink_textures(self):
+        from core.texture_relink import relink_missing_textures
+
+        folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Select Texture Search Folder")
+        if not folder:
+            self.add_result("INFO", "Relink canceled.")
+            return
+
+        self.status_label.setText("Relinking textures...")
+        actions = relink_missing_textures(folder)
+
+        for a in actions:
+            self.add_result(a["level"], f"{a['node']} - {a['message']}")
+
+        self.status_label.setText("Relink complete")
 
     # ---------------------------
     # Helpers
@@ -216,3 +267,5 @@ def show():
 
     _window = MaxSceneCleanerUI()
     _window.show()
+
+
